@@ -1,99 +1,10 @@
 from collections.abc import Sequence
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import torch
 
-
-class ActivationCollector:
-    def __init__(
-        self,
-        *,
-        output_dtype: torch.dtype = torch.float16,
-        move_to_cpu: bool = True,
-    ):
-        self.output_dtype = output_dtype
-        self.move_to_cpu = move_to_cpu
-        self.values: dict[str, torch.Tensor] = {}
-        self.handles = []
-
-    def _hook(self, name: str):
-        def capture(module, inputs, output):
-            # Some modules return tuples; encoder layers normally return
-            # their hidden-state tensor directly.
-            value = output[0] if isinstance(output, tuple) else output
-            value = value.detach().to(dtype=self.output_dtype)
-
-            if self.move_to_cpu:
-                value = value.cpu()
-
-            self.values[name] = value
-
-        return capture
-
-    def register(self, name: str, module: torch.nn.Module) -> None:
-        handle = module.register_forward_hook(self._hook(name))
-        self.handles.append(handle)
-
-    def remove(self) -> None:
-        for handle in self.handles:
-            handle.remove()
-
-        self.handles.clear()
-
-    def clear(self) -> None:
-        self.values.clear()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.remove()
-
-
-class MeanPooledCollector:
-    def __init__(
-        self,
-        *,
-        output_dtype: torch.dtype = torch.float16,
-    ):
-        self.output_dtype = output_dtype
-        self.values: dict[str, torch.Tensor] = {}
-        self.handles = []
-
-    def register(self, name: str, module: torch.nn.Module) -> None:
-        def capture(module, inputs, output):
-            hidden = output[0] if isinstance(output, tuple) else output
-
-            # [batch, audio_position, width] -> [batch, width]
-            pooled = hidden.mean(dim=1)
-
-            self.values[name] = (
-                pooled.detach()
-                .to(dtype=self.output_dtype)
-                .cpu()
-            )
-
-        self.handles.append(
-            module.register_forward_hook(capture)
-        )
-
-    def remove(self):
-        for handle in self.handles:
-            handle.remove()
-
-        self.handles.clear()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.remove()
-
-
-
+from mats12_simple.data import process_batch
 
 
 @dataclass
