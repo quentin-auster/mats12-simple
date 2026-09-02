@@ -5,8 +5,8 @@ import pandas as pd
 import torch
 from tqdm.auto import tqdm
 
-from .data import process_batch
-from .enums import DataSize, ModelVariant
+from mats12_simple.data import process_batch
+from mats12_simple.enums import DataSize, ModelVariant
 
 
 def token_level_analysis(processor, decoded, continuation_ids, eos_token_id):

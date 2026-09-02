@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 from datasets import Dataset
 
-from .enums import ModelVariant, Modes
+from mats12_simple.enums import ModelVariant, Modes
 
 
 def create_balanced_subset(
