@@ -25,6 +25,7 @@ def compare_parameter_groups(base_model, instruct_model):
     rows = []
 
     for group_name, (base_group, instruct_group) in groups.items():
+        print(f"Working on {group_name}")
         base_parameters = dict(base_group.named_parameters())
         instruct_parameters = dict(instruct_group.named_parameters())
 
@@ -63,5 +64,7 @@ def compare_parameter_groups(base_model, instruct_model):
             "changed_tensors": changed_tensors,
             "total_tensors": total_tensors,
         })
+
+        print(f"Finished {group_name}")
 
     return pd.DataFrame(rows)
