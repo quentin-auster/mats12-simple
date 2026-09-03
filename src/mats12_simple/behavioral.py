@@ -169,8 +169,3 @@ def run_batched_inference(
     return results
 
 
-def get_alternative(data):
-    return (
-        set(data.features["label"].names)
-        - {"_silence_"}
-    )

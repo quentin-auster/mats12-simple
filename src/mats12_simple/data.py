@@ -311,7 +311,7 @@ def process_batch(
     return processor(**kwargs), kwargs
 
 
-def get_alternative(data):
+def get_alternatives(data):
     return (
         set(data.features["label"].names)
         - {"_silence_"}
