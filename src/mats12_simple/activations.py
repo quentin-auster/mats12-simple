@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -12,6 +13,7 @@ from transformers import (
 
 @dataclass
 class Qwen2AudioActivations:
+
     # One tensor for LM embeddings plus one per LM transformer layer.
     # Each tensor: [batch, multimodal_sequence_length, 4096]
     lm_hidden_states: tuple[torch.Tensor, ...]
@@ -39,6 +41,26 @@ class Qwen2AudioActivations:
     # Positions occupied by audio inside the multimodal LM sequence.
     # Shape: [batch, multimodal_sequence_length]
     lm_audio_mask: torch.Tensor
+
+    def write_to_disk(self, output_dir: str | Path) -> None:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True)
+
+        for layer_index, hidden_state in enumerate(self.lm_hidden_states):
+            torch.save(
+                hidden_state,
+                output_dir / f"lm_hidden_state_{layer_index}.pt",
+            )
+
+        for name in (
+            "audio_final",
+            "audio_projected",
+            "audio_lengths",
+            "audio_last_valid",
+            "audio_projected_last_valid",
+            "lm_audio_mask",
+        ):
+            torch.save(getattr(self, name), output_dir / f"{name}.pt")
 
 
 def _extract_last_valid(
