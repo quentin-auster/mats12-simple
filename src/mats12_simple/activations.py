@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+import pandas as pd
 import torch
-from transformers import (
-    AutoProcessor,
-    Qwen2AudioForConditionalGeneration,
-)
+from transformers import Qwen2AudioForConditionalGeneration
 
+from mats12_simple.enums import Modes
+
+PositionStrategy = Literal[
+    "already_vector", 
+    "last", 
+    "last-input", 
+    "mean-audio", 
+    "mean-text"
+]
 
 @dataclass
 class Qwen2AudioActivations:
@@ -198,3 +206,71 @@ def extract_activations(
         audio_projected_last_valid=audio_projected_last_valid,
         lm_audio_mask=lm_audio_mask,
     )
+
+
+def activation_to_vector(
+    activation: torch.Tensor,
+    *,
+    mode: Modes = Modes.CONFLICT,
+    strategy: PositionStrategy = "already_vector",
+) -> torch.Tensor:
+    """
+    Convert a saved activation into one [hidden_size] vector.
+
+    Supported input shapes:
+        [hidden_size]
+        [1, hidden_size]
+        [positions, hidden_size]
+        [1, positions, hidden_size]
+    """
+
+    seq_end_idx = {
+        Modes.AUDIO_ONLY: NotImplemented,
+        Modes.TEXT_ONLY_TRUTH: NotImplemented,
+        Modes.TEXT_ONLY_WRONG: NotImplemented,
+        Modes.AGREE: NotImplemented,
+        Modes.CONFLICT: {"audio": 51, "input": 74}
+    }
+
+    input_seq_end = seq_end_idx[mode]["input"]
+    audio_seq_end = seq_end_idx[mode]["audio"]
+
+    activation = activation.detach().float().cpu()
+
+    # Remove only a singleton batch dimension.
+    if activation.ndim >= 2 and activation.shape[0] == 1:
+        activation = activation.squeeze(0)
+
+    if strategy == "already_vector":
+        if activation.ndim != 1:
+            raise ValueError(
+                "strategy='already_vector' requires a 1D tensor, "
+                f"but received {tuple(activation.shape)}"
+            )
+        return activation
+
+    if activation.ndim == 1:
+        # It has already been reduced to one vector.
+        return activation
+
+    if activation.ndim != 2:
+        raise ValueError(
+            "Expected [hidden] or [positions, hidden], "
+            f"but received {tuple(activation.shape)}"
+        )
+
+    if strategy == "last":
+        return activation[-1]
+
+    if strategy == "last-input":
+        return activation[input_seq_end]
+
+    if strategy == "mean-audio":
+        return activation[:audio_seq_end+1, :].mean(dim=0)
+
+    if strategy == "mean-text":
+        return activation[audio_seq_end:input_seq_end+1, :].mean(dim=0)
+
+    raise ValueError(f"Unknown strategy: {strategy}")
+
+
