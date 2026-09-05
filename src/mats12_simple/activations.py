@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-import pandas as pd
 import torch
 from transformers import Qwen2AudioForConditionalGeneration
 
